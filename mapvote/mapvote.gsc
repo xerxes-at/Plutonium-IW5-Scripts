@@ -17,6 +17,9 @@
 
 Init()
 {
+    cmd = "exec mapvote";
+    cmdexec(cmd); // execute mapvote.cfg
+    cmdexec(cmd + "_" + GetDvar("net_port")); // execute mapvote_XXXXX.cfg
     if (GetDvarInt("mapvote_enable"))
     {
         replaceFunc(maps\mp\gametypes\_gamelogic::waittillFinalKillcamDone, ::OnKillcamEnd);
@@ -34,16 +37,12 @@ InitMapvote()
     InitDvars();
     InitVariables();
 
-    if (GetDvarInt("mapvote_debug"))
+    if (GetDvarInt("mapvote_debug")) // Starting the mapvote normally is handled by the replaceFunc in Init()
     {
         Print("[MAPVOTE] Debug mode is ON");
         wait 3;
         level thread StartVote();
         level thread ListenForEndVote();
-    }
-    else
-    {
-        // Starting the mapvote normally is handled by the replaceFunc in Init()
     }
 }
 
@@ -51,9 +50,13 @@ InitDvars()
 {
     SetDvarIfNotInitialized("mapvote_debug", false);
 
-    SetDvarIfNotInitialized("mapvote_maps", "Seatown,mp_seatown:Dome,mp_dome:Arkaden,mp_plaza2:Bakaara,mp_mogadishu:Resistance,mp_paris:Downturn,mp_exchange:Bootleg,mp_bootleg:Carbon,mp_carbon:Hardhat,mp_hardhat:Lockdown,mp_alpha:Village,mp_village:Fallen,mp_lambeth:Outpost,mp_radar:Interchange,mp_interchange:Underground,mp_underground:Mission,mp_bravo:Piazza,mp_italy:Liberation,mp_park:Overwatch,mp_overwatch:Black Box,mp_morningwood:Sanctuary,mp_meteora:Foundation,mp_cement:Oasis,mp_qadeem:Terminal,mp_terminal_cls:Decommission,mp_shipbreaker:Off Shore,mp_roughneck:Gulch,mp_moab:Boardwalk,mp_boardwalk:Parish,mp_nola:Favela,mp_favela:Highrise,mp_highrise:Skidrow,mp_nightshift:Nuketown,mp_nuked:Rust,mp_rust");
-    SetDvarIfNotInitialized("mapvote_modes", "Team Deathmatch,TDM_default:Domination,DOM_default");
+    SetDvarIfNotInitialized("mapvote_maps", "mp_seatown,mp_dome,mp_plaza2,mp_mogadishu,mp_paris,mp_exchange,mp_bootleg,mp_carbon,mp_hardhat,mp_alpha,mp_village,mp_lambeth,mp_radar,mp_interchange,mp_underground,mp_bravo,mp_italy,mp_park,mp_overwatch,mp_morningwood,mp_meteora,mp_cement,mp_qadeem,mp_terminal_cls,mp_shipbreaker,mp_roughneck,mp_moab,mp_boardwalk,mp_nola,mp_favela,mp_highrise,mp_nightshift,mp_nuked,mp_rust");
+    SetDvarIfNotInitialized("mapvote_modes", "TDM_default,DOM_default");
+    SetDvarIfNotInitialized("mapvote_map_names", "mp_rust:Rust,mp_nuked:Nuketown,mp_nightshift:Skidrow,mp_highrise:Highrise,mp_favela:Favela,mp_nola:Parish,mp_boardwalk:Boardwalk,mp_moab:Gulch,mp_roughneck:Off Shore,mp_shipbreaker:Decommission,mp_terminal_cls:Terminal,mp_qadeem:Oasis,mp_cement:Foundation,mp_meteora:Sanctuary,mp_morningwood:Black Box,mp_overwatch:Overwatch,mp_park:Liberation,mp_italy:Piazza,mp_bravo:Mission,mp_underground:Underground,mp_interchange:Interchange,mp_radar:Outpost,mp_lambeth:Fallen,mp_village:Village,mp_alpha:Lockdown,mp_hardhat:Hadhat,mp_carbon:Carbon,mp_bootleg:Bootleg,mp_exchange:Downturn,mp_paris:Resistance,mp_mogadishu:Bakaara,mp_plaza2:Arkaden,mp_dome:Dome,mp_seatown:Seatown");
+    SetDvarIfNotInitialized("mapvote_mode_names", "TDM_default:Team Deathmatch,DOM_default:Domination");
     SetDvarIfNotInitialized("mapvote_additional_maps_dvars", "");
+    SetDvarIfNotInitialized("mapvote_additional_map_names_dvars", "");
+    SetDvarIfNotInitialized("mapvote_no_vote_behavior", 2);
     SetDvarIfNotInitialized("mapvote_limits_maps", 0);
     SetDvarIfNotInitialized("mapvote_limits_modes", 0);
     SetDvarIfNotInitialized("mapvote_limits_max", 12);
@@ -69,30 +72,22 @@ InitDvars()
     SetDvarIfNotInitialized("mapvote_vote_time", 30);
     SetDvarIfNotInitialized("mapvote_blur_level", 2.5);
     SetDvarIfNotInitialized("mapvote_blur_fade_in_time", 2);
+    SetDvarIfNotInitialized("mapvote_help_x_offset", 0);
     SetDvarIfNotInitialized("mapvote_horizontal_spacing", 75);
     SetDvarIfNotInitialized("mapvote_display_wait_time", 1);
 }
 
 InitVariables()
 {
-    mapsString = GetDvar("mapvote_maps");
+    mapsString = GetLongDvar("mapvote_maps", "mapvote_additional_maps_dvars");
 
-    foreach (mapDvar in StrTok(GetDvar("mapvote_additional_maps_dvars"), ":"))
-    {
-        if (mapsString == " ")
-        {
-            mapsString = GetDvar(mapDvar);
-        }
-        else
-        {
-            mapsString = mapsString + ":" + GetDvar(mapDvar);
-        }
-    }
+    InitMapDictionary(GetLongDvar("mapvote_map_names", "mapvote_additional_map_names_dvars"));
+    InitModeDictionary(GetLongDvar("mapvote_mode_names"));
 
-    mapsArray = StrTok(mapsString, ":");
+    mapsArray = StrTok(mapsString, ",");
     voteLimits = [];
 
-    modesArray = StrTok(GetDvar("mapvote_modes"), ":");
+    modesArray = StrTok(GetDvar("mapvote_modes"), ",");
 
     if (GetDvarInt("mapvote_limits_maps") == 0 && GetDvarInt("mapvote_limits_modes") == 0)
     {
@@ -123,7 +118,82 @@ InitVariables()
     level.mapvote["hud"]["modes"] = [];
 }
 
+GetLongDvar(dvarName, additionalDvars)
+{
+    value = getDvar(dvarName);
+    counter = 1;
+    helper = getDvar(dvarName+counter);
+    while(helper != "")
+    {
+        value = value + "," + helper;
+        counter+=1;
+        helper = getDvar(dvarName+counter);
+    }
 
+    if(isDefined(additionalDvars))
+    {
+        dvarList = GetDvar(additionalDvars);
+        foreach (dvars in StrTok(dvarList, ","))
+        {
+            if (value == "" || value == " ")
+            {
+                value = GetDvar(dvars);
+            }
+            else
+            {
+                value = value + "," + GetDvar(dvars);
+            }
+        }
+    }
+
+    return value;
+}
+
+InitMapDictionary(maps)
+{
+    level.mapvote["dict"]["maps"] = [];
+    foreach (element in StrTok(maps, ","))
+    {
+        splitElement = StrTok(element, ":");
+        level.mapvote["dict"]["maps"][splitElement[0]] = splitElement[1]; // eg. mp_dome = Dome
+    }
+}
+
+InitModeDictionary(modes)
+{
+    level.mapvote["dict"]["modes"] = [];
+    foreach (element in StrTok(modes, ","))
+    {
+        splitElement = StrTok(element, ":");
+        level.mapvote["dict"]["modes"][splitElement[0]] = splitElement[1]; // eg. TDM_default = Team Deathmatch
+    }
+}
+
+GetMapName(devName)
+{
+    var = level.mapvote["dict"]["maps"][devName];
+    if(isDefined(var))
+    {
+        return var;
+    }
+    else
+    {
+        return devName;
+    }
+}
+
+GetModeName(dsrName)
+{
+    var = level.mapvote["dict"]["modes"][dsrName];
+    if(isDefined(var))
+    {
+        return var;
+    }
+    else
+    {
+        return dsrName;
+    }
+}
 
 /* Player section */
 
@@ -267,11 +337,10 @@ CreateVoteMenu()
         mapVotesHud.color = GetGscColor(GetDvar("mapvote_colors_selected"));
 
         level.mapvote["hud"]["maps"][mapIndex] = mapVotesHud;
+        mapName = GetMapName(level.mapvote["maps"]["by_index"][mapIndex]);
 
         foreach (player in GetHumanPlayers())
         {
-            mapName = level.mapvote["maps"]["by_index"][mapIndex];
-
             player.mapvote["map"][mapIndex]["hud"] = player CreateHudText(mapName, "default", 1.5, "LEFT", "CENTER", 0 - (GetDvarInt("mapvote_horizontal_spacing")), hudLastPosY);
 
             if (mapIndex == 0)
@@ -298,9 +367,11 @@ CreateVoteMenu()
 
             level.mapvote["hud"]["modes"][modeIndex] = modeVotesHud;
 
+            modeName = GetModeName(level.mapvote["modes"]["by_index"][modeIndex]);
+
             foreach (player in GetHumanPlayers())
             {
-                player.mapvote["mode"][modeIndex]["hud"] = player CreateHudText(level.mapvote["modes"]["by_index"][modeIndex], "default", 1.5, "LEFT", "CENTER", 0 - (GetDvarInt("mapvote_horizontal_spacing")), hudLastPosY);
+                player.mapvote["mode"][modeIndex]["hud"] = player CreateHudText(modeName, "default", 1.5, "LEFT", "CENTER", 0 - (GetDvarInt("mapvote_horizontal_spacing")), hudLastPosY);
 
                 SetElementUnselected(player.mapvote["mode"][modeIndex]["hud"]);
             }
@@ -325,7 +396,7 @@ CreateVoteMenu()
             buttonsHelpMessage = GetChatColor(GetDvar("mapvote_colors_help_text")) + "Press " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "[{+attack}] " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "to go " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "down " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "- Press " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "[{+toggleads_throw}] OR [{+speed_throw}] " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "to go " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "up " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "- Press " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "[{+gostand}] " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "to " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "select " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "- Press " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "[{+activate}] " + GetChatColor(GetDvar("mapvote_colors_help_text")) + "to " + GetChatColor(GetDvar("mapvote_colors_help_accent")) + "undo";
         }
 
-        player CreateHudText(buttonsHelpMessage, "default", 1.5, "CENTER", "CENTER", 0, 210); 
+        player CreateHudText(buttonsHelpMessage, "default", 1.5, "CENTER", "CENTER", 0, 210 + getDvarInt("mapvote_help_x_offset")); 
     }
 }
 
@@ -355,6 +426,7 @@ CreateVoteTimer()
 StartVote()
 {
     level endon("end_game");
+    level notify("mapvote_vote_start");
 
     for (i = 0; i < level.mapvote["maps"]["by_index"].size; i++)
     {
@@ -406,7 +478,7 @@ ListenForEndVote()
         }
     }
 
-    if (mostVotedMapVotes == 0)
+    if (mostVotedMapVotes == 0 && getDvarInt("mapvote_no_vote_behavior")>1)
     {
         mostVotedMapIndex = GetRandomElementInArray(GetArrayKeys(level.mapvote["vote"]["maps"]));
 
@@ -423,7 +495,7 @@ ListenForEndVote()
         }
     }
 
-    if (mostVotedModeVotes == 0)
+    if (mostVotedModeVotes == 0 && getDvarInt("mapvote_no_vote_behavior")>1)
     {
         mostVotedModeIndex = GetRandomElementInArray(GetArrayKeys(level.mapvote["vote"]["modes"]));
 
@@ -440,13 +512,31 @@ ListenForEndVote()
         }
     }
 
-    modeName = level.mapvote["modes"]["by_index"][mostVotedModeIndex];
-    modeDsr = level.mapvote["modes"]["by_name"][level.mapvote["modes"]["by_index"][mostVotedModeIndex]];
-    mapName = level.mapvote["maps"]["by_name"][level.mapvote["maps"]["by_index"][mostVotedMapIndex]];
+    if (mostVotedMapVotes == 0 && mostVotedModeVotes == 0)
+    {
+        if(getDvarInt("mapvote_no_vote_behavior") == 1)
+        {
+            Print("[MAPVOTE] Nobody voted and mapvote_no_vote_behavior is set to 1 -> map_rotate");
+            cmdexec("map_rotate");
+        }
+
+        if (getDvarInt("mapvote_no_vote_behavior") == 0)
+        {
+            Print("[MAPVOTE] Nobody voted and mapvote_no_vote_behavior is set to 0 -> fast_restart");
+            cmdexec("fast_restart");
+        }
+    }
+
+
+    modeName = GetModeName(level.mapvote["modes"]["by_index"][mostVotedModeIndex]);
+    //modeDsr = level.mapvote["modes"]["by_name"][level.mapvote["modes"]["by_index"][mostVotedModeIndex]];
+    modeDsr = level.mapvote["modes"]["by_index"][mostVotedModeIndex];
+    //mapName = level.mapvote["maps"]["by_name"][level.mapvote["maps"]["by_index"][mostVotedMapIndex]];
+    mapName = level.mapvote["maps"]["by_index"][mostVotedMapIndex];
 
     if (GetDvarInt("mapvote_debug"))
     {
-        Print("[MAPVOTE] mapName: " + mapName);
+        Print("[MAPVOTE] mapName: " + mapName + " (" + GetMapName(mapName) + ")");
         Print("[MAPVOTE] modeName: " + modeName);
         Print("[MAPVOTE] modeDsr: " + modeDsr);
         Print("[MAPVOTE] Rotating to " + mapName + " | " + modeName + " (" + modeDsr + ".dsr)");
@@ -469,7 +559,7 @@ SetMapvoteData(type, elements)
     }
     else
     {
-        availableElements = StrTok(GetDvar("mapvote_" + type + "s"), ":");
+        availableElements = StrTok(GetDvar("mapvote_" + type + "s"), ",");
     }
 
     if (availableElements.size < limit)
@@ -483,10 +573,11 @@ SetMapvoteData(type, elements)
 
         foreach (mapElement in availableElements)
         {
-            finalMapElement = StrTok(mapElement, ",");
-            finalMapElements = AddElementToArray(finalMapElements, finalMapElement[0]);
+            //finalMapElement = StrTok(mapElement, ",");
+            //finalMapElements = AddElementToArray(finalMapElements, finalMapElement[0]);
+            finalMapElements = AddElementToArray(finalMapElements, mapElement);
             
-            level.mapvote["maps"]["by_name"][finalMapElement[0]] = finalMapElement[1];
+            //level.mapvote["maps"]["by_name"][finalMapElement[0]] = finalMapElement[1];
         }
 
         level.mapvote["maps"]["by_index"] = GetRandomUniqueElementsInArray(finalMapElements, limit);
@@ -495,15 +586,16 @@ SetMapvoteData(type, elements)
     {
         finalElements = [];
 
-        foreach (mode in GetRandomUniqueElementsInArray(availableElements, limit))
+        foreach (mode in availableElements)
         {
-            splittedMode = StrTok(mode, ",");
-            finalElements = AddElementToArray(finalElements, splittedMode[0]);
+            //splittedMode = StrTok(mode, ",");
+            //finalElements = AddElementToArray(finalElements, splittedMode[0]);
+            finalElements = AddElementToArray(finalElements, mode);
 
-            level.mapvote["modes"]["by_name"][splittedMode[0]] = splittedMode[1];
+            //level.mapvote["modes"]["by_name"][splittedMode[0]] = splittedMode[1];
         }
 
-        level.mapvote["modes"]["by_index"] = finalElements;
+        level.mapvote["modes"]["by_index"] = GetRandomUniqueElementsInArray(finalElements, limit);
     }
 }
 
