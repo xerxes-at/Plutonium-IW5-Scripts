@@ -17,9 +17,9 @@
 
 Init()
 {
-    cmd = "exec mapvote";
-    cmdexec(cmd); // execute mapvote.cfg
-    cmdexec(cmd + "_" + GetDvar("net_port")); // execute mapvote_XXXXX.cfg
+    //cmd = "exec mapvote";
+    //cmdexec(cmd + "\n"); // execute mapvote.cfg
+    //cmdexec(cmd + "_" + GetDvar("net_port")+ "\n"); // execute mapvote_XXXXX.cfg
     if (GetDvarInt("mapvote_enable"))
     {
         replaceFunc(maps\mp\gametypes\_gamelogic::waittillFinalKillcamDone, ::OnKillcamEnd);
@@ -156,6 +156,10 @@ InitMapDictionary(maps)
     {
         splitElement = StrTok(element, ":");
         level.mapvote["dict"]["maps"][splitElement[0]] = splitElement[1]; // eg. mp_dome = Dome
+        if (GetDvarInt("mapvote_debug"))
+        {
+            Print("[MAPVOTE][InitMapDictionary] Adding '" + splitElement[0] + "' as '" + splitElement[1] + "'");
+        }
     }
 }
 
@@ -166,6 +170,10 @@ InitModeDictionary(modes)
     {
         splitElement = StrTok(element, ":");
         level.mapvote["dict"]["modes"][splitElement[0]] = splitElement[1]; // eg. TDM_default = Team Deathmatch
+        if (GetDvarInt("mapvote_debug"))
+        {
+            Print("[MAPVOTE][InitModeDictionary] Adding '" + splitElement[0] + "' as '" + splitElement[1] + "'");
+        }
     }
 }
 
