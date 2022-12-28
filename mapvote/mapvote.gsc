@@ -1014,7 +1014,11 @@ GetUniqueElementsInArray(array)
     {
         if (!ArrayContainsValue(uniqueElements, element))
         {
-            AddElementToArray(uniqueElements,element);
+            uniqueElements = AddElementToArray(uniqueElements,element);
+            if (GetDvarInt("mapvote_debug")>1)
+            {
+                Print("[MAPVOTE][GetUniqueElementsInArray] Adding '"+ element + "' to the array of unique elements; Count is: " + uniqueElements.size);
+            }
         }
     }
     return uniqueElements;
