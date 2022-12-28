@@ -37,7 +37,12 @@ InitMapvote()
     InitDvars();
     InitVariables();
 
-    if (GetDvarInt("mapvote_debug")) // Starting the mapvote normally is handled by the replaceFunc in Init()
+    if (GetDvarInt("mapvote_debug"))
+    {
+        Print("[MAPVOTE][InitMapvote] Init done");
+    }
+
+    if (GetDvarInt("mapvote_debug") > 2) // Starting the mapvote normally is handled by the replaceFunc in Init()
     {
         Print("[MAPVOTE] Debug mode is ON");
         wait 3;
@@ -86,9 +91,15 @@ InitVariables()
 
     mapsArray = StrTok(mapsString, ",");
     voteLimits = [];
-
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] A");
+    }
     modesArray = StrTok(GetDvar("mapvote_modes"), ",");
-
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] B");
+    }
     if (GetDvarInt("mapvote_limits_maps") == 0 && GetDvarInt("mapvote_limits_modes") == 0)
     {
         voteLimits = GetVoteLimits(mapsArray.size, modesArray.size);
@@ -105,13 +116,26 @@ InitVariables()
     {
         voteLimits = GetVoteLimits(GetDvarInt("mapvote_limits_maps"), GetDvarInt("mapvote_limits_modes"));
     }
-
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] C");
+    }
     level.mapvote["limit"]["maps"] = voteLimits["maps"];
     level.mapvote["limit"]["modes"] = voteLimits["modes"];
-
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] D");
+    }
     SetMapvoteData("map", mapsArray);
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] E");
+    }
     SetMapvoteData("mode");
-
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][InitVariables] F");
+    }
     level.mapvote["vote"]["maps"] = [];
     level.mapvote["vote"]["modes"] = [];
     level.mapvote["hud"]["maps"] = [];
@@ -161,6 +185,10 @@ InitMapDictionary(maps)
             Print("[MAPVOTE][InitMapDictionary] Adding '" + splitElement[0] + "' as '" + splitElement[1] + "'");
         }
     }
+    if (GetDvarInt("mapvote_debug"))
+    {
+        Print("[MAPVOTE][InitMapDictionary] Init done");
+    }
 }
 
 InitModeDictionary(modes)
@@ -174,6 +202,10 @@ InitModeDictionary(modes)
         {
             Print("[MAPVOTE][InitModeDictionary] Adding '" + splitElement[0] + "' as '" + splitElement[1] + "'");
         }
+    }
+    if (GetDvarInt("mapvote_debug"))
+    {
+        Print("[MAPVOTE][InitModeDictionary] Init done");
     }
 }
 
@@ -564,19 +596,42 @@ SetMapvoteData(type, elements)
     if (IsDefined(elements))
     {
         availableElements = elements;
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][SetMapvoteData] Parameter elements is defined.");
+        }
     }
     else
     {
         availableElements = StrTok(GetDvar("mapvote_" + type + "s"), ",");
     }
 
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][SetMapvoteData] Parameter limit is '" + limit + "' and the amount of available Elements is '" + availableElements.size + "'.");
+    }
+
     if (availableElements.size < limit)
     {
         limit = availableElements.size;
     }
+    _uniqueAvailableElements = GetUniqueElementsInArray(availableElements);
+    if( _uniqueAvailableElements.size < limit)
+    {
+        limit = _uniqueAvailableElements.size;
+        Print("[MAPVOTE][SetMapvoteData] WARNING: Your "+ type +"list contains duplicate entries.");
+    }
 
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][SetMapvoteData] TypeSwitch");
+    }
     if (type == "map")
     {
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][SetMapvoteData] It's a map");
+        }
         finalMapElements = [];
 
         foreach (mapElement in availableElements)
@@ -586,12 +641,27 @@ SetMapvoteData(type, elements)
             finalMapElements = AddElementToArray(finalMapElements, mapElement);
             
             //level.mapvote["maps"]["by_name"][finalMapElement[0]] = finalMapElement[1];
+            if (GetDvarInt("mapvote_debug")>1)
+            {
+                Print("[MAPVOTE][SetMapvoteData] Adding '" + mapElement + "'.");
+            }
         }
-
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][SetMapvoteData] We got out of the foreach itterating over all elements.");
+        }
         level.mapvote["maps"]["by_index"] = GetRandomUniqueElementsInArray(finalMapElements, limit);
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][SetMapvoteData] We called GetRandomUniqueElementsInArray and are done.");
+        }
     }
     else if (type == "mode")
     {
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][SetMapvoteData] It's a mode");
+        }
         finalElements = [];
 
         foreach (mode in availableElements)
@@ -601,6 +671,10 @@ SetMapvoteData(type, elements)
             finalElements = AddElementToArray(finalElements, mode);
 
             //level.mapvote["modes"]["by_name"][splittedMode[0]] = splittedMode[1];
+            if (GetDvarInt("mapvote_debug")>1)
+            {
+                Print("[MAPVOTE][SetMapvoteData] Adding '" + mode + "'.");
+            }
         }
 
         level.mapvote["modes"]["by_index"] = GetRandomUniqueElementsInArray(finalElements, limit);
@@ -884,7 +958,10 @@ GetRandomUniqueElementsInArray(array, limit)
     for (i = 0; i < limit; i++)
     {
         findElement = true;
-
+        if (GetDvarInt("mapvote_debug")>1)
+        {
+            Print("[MAPVOTE][GetRandomUniqueElementsInArray] i = " + i);
+        }
         while (findElement)
         {
             randomElement = GetRandomElementInArray(array);
@@ -894,6 +971,11 @@ GetRandomUniqueElementsInArray(array, limit)
                 finalElements = AddElementToArray(finalElements, randomElement);
 
                 findElement = false;
+            }
+
+            if (GetDvarInt("mapvote_debug")>1)
+            {
+                Print("[MAPVOTE][GetRandomUniqueElementsInArray] randomElement = " + randomElement);
             }
         }
     }
@@ -923,6 +1005,19 @@ AddElementToArray(array, element)
 {
     array[array.size] = element;
     return array;
+}
+
+GetUniqueElementsInArray(array)
+{
+    uniqueElements = [];
+    foreach (element in array)
+    {
+        if (!ArrayContainsValue(uniqueElements, element))
+        {
+            AddElementToArray(uniqueElements,element);
+        }
+    }
+    return uniqueElements;
 }
 
 GetGscColor(colorName)
