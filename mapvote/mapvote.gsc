@@ -17,13 +17,16 @@
 
 Init()
 {
-    //cmd = "exec mapvote";
-    //cmdexec(cmd + "\n"); // execute mapvote.cfg
-    //cmdexec(cmd + "_" + GetDvar("net_port")+ "\n"); // execute mapvote_XXXXX.cfg
+    cmd = "exec mapvote";
+    cmdexec(cmd + "\n"); // execute mapvote.cfg
+    cmdexec(cmd + "_" + GetDvar("net_port")+ "\n"); // execute mapvote_XXXXX.cfg
     if (GetDvarInt("mapvote_enable"))
     {
         replaceFunc(maps\mp\gametypes\_gamelogic::waittillFinalKillcamDone, ::OnKillcamEnd);
         level thread MonitorGameEndReason();
+        if (GetDvarInt("mapvote_iw5_fix_ctf") && GetDvar("g_gametype") == "ctf" ) {
+            level thread DeleteCTFHudelements();
+        }
         InitMapvote();
     }
 }
@@ -35,7 +38,6 @@ Init()
 InitMapvote()
 {
     InitDvars();
-    InitVariables();
 
     if (GetDvarInt("mapvote_debug"))
     {
@@ -80,6 +82,7 @@ InitDvars()
     SetDvarIfNotInitialized("mapvote_help_x_offset", 0);
     SetDvarIfNotInitialized("mapvote_horizontal_spacing", 75);
     SetDvarIfNotInitialized("mapvote_display_wait_time", 1);
+    SetDvarIfNotInitialized("mapvote_iw5_fix_ctf", 1);
 }
 
 InitVariables()
@@ -468,6 +471,8 @@ StartVote()
     level endon("end_game");
     level notify("mapvote_vote_start");
 
+    InitVariables();
+
     for (i = 0; i < level.mapvote["maps"]["by_index"].size; i++)
     {
         level.mapvote["vote"]["maps"][i] = 0;
@@ -778,6 +783,20 @@ MonitorGameEndReason()
 	{
         level.mapvote["winner"] = winner.name;
     }
+}
+
+DeleteCTFHudelements()
+{
+    level waittill( "game_ended" );
+    destroyElem = maps\mp\gametypes\_hud_util::destroyElem;
+    level.friendlyFlagStatusIcon["allies"] destroyElem();
+    level.friendlyFlagStatusText["allies"]destroyElem();
+    level.enemyFlagStatusIcon["allies"] destroyElem();
+    level.enemyFlagStatusText["allies"] destroyElem();
+    level.friendlyFlagStatusIcon["axis"] destroyElem();
+    level.friendlyFlagStatusText["axis"] destroyElem();
+    level.enemyFlagStatusIcon["axis"] destroyElem();
+    level.enemyFlagStatusText["axis"] destroyElem();
 }
 
 isLastKillcam()
