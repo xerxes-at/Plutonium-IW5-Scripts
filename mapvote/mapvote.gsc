@@ -23,7 +23,7 @@ Init()
     if (GetDvarInt("mapvote_enable"))
     {
         replaceFunc(maps\mp\gametypes\_gamelogic::waittillFinalKillcamDone, ::OnKillcamEnd);
-
+        level thread MonitorGameEndReason();
         InitMapvote();
     }
 }
@@ -745,9 +745,10 @@ GetVoteLimits(mapsAmount, modesAmount)
 
 OnKillcamEnd()
 {
+
     if (!IsDefined(level.finalkillcam_winner))
 	{
-	    if (isRoundBased() && !wasLastRound())
+	    if (!isLastKillcam())
 			return false;	
 		wait GetDvarInt("mapvote_display_wait_time");
 		
@@ -757,7 +758,7 @@ OnKillcamEnd()
     }
 	
     level waittill("final_killcam_done");
-	if (isRoundBased() && !wasLastRound())
+	if (!isLastKillcam())
 		return true;
 	wait GetDvarInt("mapvote_display_wait_time");
 
@@ -766,7 +767,33 @@ OnKillcamEnd()
     return true;
 }
 
+MonitorGameEndReason()
+{
+    level waittill( "game_ended", winner );
+    if ( isDefined( winner ) && isString( winner ))
+	{
+        level.mapvote["winner"] = winner;
+    }
+    if ( isDefined( winner ) && isPlayer( winner ))
+	{
+        level.mapvote["winner"] = winner.name;
+    }
+}
 
+isLastKillcam()
+{
+
+    if (GetDvarInt("mapvote_debug")>1)
+    {
+        Print("[MAPVOTE][isLastKillcam] level.mapvote[\"winner\"]: "+ level.mapvote["winner"]);
+    }
+    //Only on overtime and halftime we have to suppress the vote, axis allies tie and players (ffa + gg) mean that the game has ended.
+    if (isDefined(level.mapvote["winner"]) && (level.mapvote["winner"] == "overtime" || level.mapvote["winner"] == "halftime")) {
+        return false;
+    }
+
+    return true;
+}
 
 /* HUD section */
 
